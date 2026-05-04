@@ -1,0 +1,39 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: pytest
+
+      - name: Build Docker image
+        run: docker build -t my-fastapi-app .
+
+      - name: Run container
+        run: docker run -d -p 8000:8000 --name app my-fastapi-app
+
+      - name: Wait for service
+        run: |
+          for i in {1..10}; do
+            curl -s http://localhost:8000/health && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop app || true
+          docker rm app || true
